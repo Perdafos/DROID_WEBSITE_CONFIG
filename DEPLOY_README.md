@@ -3,17 +3,30 @@
 ## Arsitektur
 
 ```
-┌──────────────────────┐   WebSocket (WSS)   ┌────────────────────┐   MJPEG/HTTP   ┌──────────────┐
-│  Vercel (Frontend)   │ ←───────────────── │  VPS Debian         │ ←──────────── │ DroidCam      │
+┌──────────────────────┐   WebSocket (WSS)   ┌────────────────────┐   MJPEG/HTTP    ┌──────────────┐
+│  Vercel (Frontend)   │ ←───────────────── │  VPS Debian         │ ←───────────── │ DroidCam      │
 │  droidcam-relay      │  wss://doridcam.    │  (Relay Server)     │   :4747/video  │ Laptop Sumber │
 │  .vercel.app         │  perdafos.my.id     │  Port 3000          │                │              │
 └──────────────────────┘                     └────────────────────┘                └──────────────┘
+                                                                                         │
+                                                    Atau (mode RTSP):                    │
+                                                    ┌────────────────────┐   RTSP        │
+                                                    │  Camera IP / NVR   │ ←────────────┘
+                                                    │  (via FFmpeg)      │
+                                                    └────────────────────┘
 ```
 
-## Deploy Frontend ke Vercel
+Project ini bisa pake **2 mode stream**:
+- **HTTP** — DroidCam WiFi HTTP MJPEG (default, bisa pake pairing)
+- **RTSP** — Camera IP/NVR via FFmpeg transcoding (tidak bisa pairing, config manual)
+
+---
+
+## Mode HTTP (DroidCam — default)
+
+### Deploy Frontend ke Vercel
 
 ```bash
-# Buat repo GitHub → push
 git remote add origin https://github.com/USERNAME/droidcam-relay.git
 git push -u origin main
 ```
@@ -21,88 +34,82 @@ git push -u origin main
 1. Buka https://vercel.com → Import repo
 2. Framework: **Other**
 3. Output Directory: **public**
-4. Deploy! Dapet URL `https://droidcam-relay.vercel.app`
+4. Deploy! Dapat URL `https://droidcam-relay.vercel.app`
 
-**Sudah siap** — `config.js` di repo sudah pointing ke `wss://doridcam.perdafos.my.id`.
+### Setup Relay Server di VPS
 
----
-
-## Setup Relay Server di VPS (via Proxmox console)
-
-**PENTING:** Pastikan DNS `doridcam.perdafos.my.id` sudah pointing ke IP publik VPS.
-Di Cloudflare: set ke **grey cloud** (☁️ mati) biar bisa HTTPS.
-
-Copy script ke VPS lalu jalanin:
-
-### Cara 1: Download langsung di VPS
+Copy script ke VPS lalu jalankan:
 
 ```bash
-# Di console VPS, jalanin sebagai root:
 wget -O setup.sh https://raw.githubusercontent.com/USERNAME/droidcam-relay/main/setup.sh
 bash setup.sh
 ```
 
-### Cara 2: Manual copy-paste ke VPS
+### Pairing (One-Click)
 
-```bash
-# Di console VPS (sebagai root):
-apt install -y git
-git clone https://github.com/USERNAME/droidcam-relay.git /tmp/droidcam
-cp /tmp/droidcam/setup.sh /root/
-bash /root/setup.sh
-```
-
-### Cara 3: Satu per satu
-
-Kalo mau manual, run step ini di VPS:
-
-```bash
-# 1. Install Node.js
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs nginx git
-
-# 2. Setup project
-cd /opt && git clone https://github.com/USERNAME/droidcam-relay.git droidcam-relay
-cd droidcam-relay && npm install --production
-
-# 3. Jalankan relay
-node server.js
-
-# 4. Setup Nginx + SSL → liat script setup.sh untuk konfigurasi lengkap
-```
-
-**Setelah setup selesai**, liat output terminal:
-
-```
-╔═══════════════════════════════════════════╗
-║  ✅  SETUP SELESAI!                       ║
-║───────────────────────────────────────────║
-║  STEP 1 — Buka dari LAPTOP SUMBER:        ║
-║    http://doridcam.perdafos.my.id/pair    ║
-║                                           ║
-║  STEP 2 — Klik tombol "Daftarkan laptop"  ║
-║                                           ║
-║  STEP 3 — Buka viewer:                    ║
-║    https://droidcam-relay.vercel.app      ║
-╚═══════════════════════════════════════════╝
-```
-
----
-
-## Pairing (One-Click)
-
-**Cukup sekali:** Dari browser laptop sumber DroidCam, buka:
+Dari browser laptop sumber DroidCam, buka:
 
 ```
 https://doridcam.perdafos.my.id/pair
 ```
 
-Lalu klik **"📌 Daftarkan laptop ini"** — otomatis:
+Klik **"📌 Daftarkan laptop ini"** — otomatis:
 - Deteksi IP laptop
 - Simpan ke `.paired_ip` di server
 - `DROIDCAM_URL` langsung berubah
 
-Gak perlu edit config manual.
+---
+
+## Mode RTSP (Camera IP / NVR)
+
+### 1. Setup VPS
+
+```bash
+# Clone dan install
+git clone https://github.com/USERNAME/droidcam-relay.git /opt/droidcam-relay
+cd /opt/droidcam-relay
+npm install --production
+
+# Install FFmpeg (wajib untuk RTSP)
+apt install -y ffmpeg
+```
+
+### 2. Konfigurasi .env
+
+Edit `/opt/droidcam-relay/.env`:
+
+```
+STREAM_TYPE=rtsp
+RTSP_URL=rtsp://username:password@192.168.1.100:554/stream1
+
+RTSP_TRANSPORT=tcp
+RTSP_FPS=15
+RTSP_SIZE=640x480
+RTSP_QUALITY=3
+FFMPEG_PATH=ffmpeg
+
+PORT=3000
+HOST=0.0.0.0
+```
+
+### 3. Jalankan
+
+```bash
+node server.js
+```
+
+Atau setup systemd + Nginx + SSL (lihat bagian setup.sh).
+
+### 4. Buka Viewer
+
+Frontend Vercel → otomatis connect ke `wss://doridcam.perdafos.my.id`
+
+Atau langsung:
+
+| Mode | URL |
+|------|-----|
+| RTSP via FFmpeg | `http://<VPS_IP>:3000/mjpeg` |
+| WebSocket | `ws://<VPS_IP>:3000` |
 
 ---
 
@@ -111,11 +118,40 @@ Gak perlu edit config manual.
 | Endpoint | Fungsi |
 |----------|--------|
 | `/` | 404 (frontend di Vercel) |
-| `/status` | Status relay + jumlah viewer |
+| `/status` | Status relay + stream type + jumlah viewer |
 | `/mjpeg` | Direct MJPEG stream |
-| `/pair` | Halaman pairing (one-click) |
-| `/api/pair` | API pairing (POST) |
-| `/api/unpair` | API un-pair (POST) |
+| `/pair` | Halaman pairing (HTTP mode) / info config (RTSP mode) |
+| `/api/pair` | API pairing (POST) — HTTP only |
+| `/api/unpair` | API un-pair (POST) — HTTP only |
+
+### /status Response
+
+```json
+{
+  "uptime": 12345,
+  "streamType": "rtsp",
+  "source": "rtsp://user:pass@192.168.1.100:554/stream1",
+  "viewers": 2,
+  "paired": false
+}
+```
+
+---
+
+## RTSP Fine-Tuning
+
+| Env Var | Default | Keterangan |
+|---------|---------|------------|
+| `RTSP_TRANSPORT` | `tcp` | Protocol: `tcp` lebih stabil, `udp` lebih murah bandwidth |
+| `RTSP_FPS` | `15` | Output framerate — makin rendah makin hemat bandwidth |
+| `RTSP_SIZE` | `640x480` | Output resolusi. VGA cukup utk monitoring |
+| `RTSP_QUALITY` | `3` | JPEG quality 1-31, lower = lebih bagus. 1-5 utk web |
+| `FFMPEG_PATH` | `ffmpeg` | Path ke ffmpeg binary |
+
+**Tips performa:**
+- RTSP camera lokal (LAN) → set FPS 20-30
+- RTSP lewat internet → set FPS 10-15, SIZE 320x240 atau 640x480
+- Kalau sering disconnect → ganti `RTSP_TRANSPORT=udp`
 
 ---
 
