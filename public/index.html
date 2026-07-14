@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DroidCam Monitor</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📷 DroidCam Monitor</h1>
+      <span class="status" id="status">Disconnected</span>
+    </header>
+
+    <div class="viewer" id="viewer">
+      <canvas id="canvas"></canvas>
+      <div class="placeholder" id="placeholder">
+        <div class="placeholder-icon">📹</div>
+        <p>Menunggu stream...</p>
+        <small>Pastikan laptop sumber terhubung ke server</small>
+      </div>
+    </div>
+
+    <div class="info-bar">
+      <span id="fps">0 FPS</span>
+      <span id="resolution">-</span>
+      <span id="latency">-</span>
+      <span id="viewers">Viewers: ?</span>
+    </div>
+
+    <div class="controls">
+      <button id="btnMute" class="btn btn-secondary">🔇 Mute</button>
+      <button id="btnFullscreen" class="btn btn-secondary">⛶ Fullscreen</button>
+      <a href="/direct" class="btn btn-secondary" id="linkDirect">🔗 Direct Stream</a>
+    </div>
+
+    <footer>
+      <p>DroidCam Web Relay &mdash; source tersedia di server</p>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

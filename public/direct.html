@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DroidCam — Direct Stream</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    body { justify-content: center; align-items: center; }
+    .direct-container { max-width: 960px; width: 100%; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+    .direct-container img { width: 100%; border-radius: 8px; background: #000; }
+  </style>
+</head>
+<body>
+  <div class="direct-container">
+    <header>
+      <h1>📷 Direct MJPEG Stream</h1>
+      <a href="/" class="btn">&larr; Kembali</a>
+    </header>
+    <img src="/mjpeg" alt="DroidCam live stream" id="directStream" />
+    <p style="color:#8b949e;font-size:0.85rem;">
+      Mode langsung — browser menyambung langsung ke server. Jika stream berhenti, refresh halaman.
+    </p>
+  </div>
+</body>
+</html>
