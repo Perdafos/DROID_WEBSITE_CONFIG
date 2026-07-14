@@ -8,4 +8,4 @@
 //   const RELAY_SERVER = 'wss://relay.example.com';
 //   const RELAY_SERVER = 'wss://droidcam.scholair.my.id';
 // ============================================================
-const RELAY_SERVER = 'ws://localhost:3000';
+const RELAY_SERVER = 'wss://doridcam.perdafos.my.id';

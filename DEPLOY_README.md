@@ -1,224 +1,136 @@
-# Panduan Deploy DroidCam Web Relay
+# DroidCam Web Relay — Deploy Guide
 
 ## Arsitektur
 
 ```
-┌──────────────────────┐       WebSocket       ┌──────────────────┐     MJPEG/HTTP    ┌──────────────┐
-│  Vercel (Frontend)   │ ←──────────────────→ │  VPS / Server     │ ←────────────── │ DroidCam      │
-│  - index.html        │   wss://relay-srv:3000 │  (Relay Server)   │   :4747/video   │ Laptop Sumber │
-│  - app.js            │                        │  - Node.js        │                 │              │
-│  - config.js         │                        │  - WebSocket relay│                 │              │
-│  - direct.html       │                        │  - /mjpeg proxy   │                 │              │
-└──────────────────────┘                        └──────────────────┘                 └──────────────┘
-                       └── https://vercel-domain.vercel.app ──┘
+┌──────────────────────┐   WebSocket (WSS)   ┌────────────────────┐   MJPEG/HTTP   ┌──────────────┐
+│  Vercel (Frontend)   │ ←───────────────── │  VPS Debian         │ ←──────────── │ DroidCam      │
+│  droidcam-relay      │  wss://doridcam.    │  (Relay Server)     │   :4747/video  │ Laptop Sumber │
+│  .vercel.app         │  perdafos.my.id     │  Port 3000          │                │              │
+└──────────────────────┘                     └────────────────────┘                └──────────────┘
 ```
 
-## Syarat
-
-| Komponen | Keterangan |
-|----------|------------|
-| **Vercel** | Hosting frontend (gratis) |
-| **VPS / Server Debian** | Relay server — harus reachable dari Vercel & viewer (public IP atau domain) |
-| **Laptop Sumber** | Install DroidCam, mode WiFi |
-| **Domain** | (Opsional) Untuk relay server, biar pakai WSS (WebSocket Secure) |
-
----
-
-## Bagian 1: Deploy Frontend ke Vercel
-
-### 1a. Setup GitHub repo
+## Deploy Frontend ke Vercel
 
 ```bash
-# Inisialisasi git
-cd /d/Droidcam_website_config
-git init
-git add .
-git commit -m "Initial commit: DroidCam web relay frontend + relay server"
-
-# Buat repo di GitHub (lewat browser https://github.com/new)
-# Lalu push:
+# Buat repo GitHub → push
 git remote add origin https://github.com/USERNAME/droidcam-relay.git
 git push -u origin main
 ```
 
-### 1b. Deploy ke Vercel
+1. Buka https://vercel.com → Import repo
+2. Framework: **Other**
+3. Output Directory: **public**
+4. Deploy! Dapet URL `https://droidcam-relay.vercel.app`
 
-1. Buka https://vercel.com → Import GitHub repo `droidcam-relay`
-2. **Framework**: `Other`
-3. **Root Directory**: `./` (default)
-4. **Build & Output**: biarkan default (Vercel deteksi `public/` via `vercel.json`)
-5. Deploy → dapat URL `https://droidcam-relay.vercel.app`
-
-### 1c. Konfigurasi config.js
-
-Vercel akan deploy file `config.js`. Untuk **production**, arahkan ke relay server:
-
-```js
-// public/config.js
-const RELAY_SERVER = 'wss://relay-server-domain.com';
-```
-
-Bisa diganti langsung di GitHub atau via Vercel dashboard setelah deploy.
-
-> **Catatan:** Vercel **tidak support** WebSocket server/streaming backend. Maka dari itu perlu relay server terpisah.
+**Sudah siap** — `config.js` di repo sudah pointing ke `wss://doridcam.perdafos.my.id`.
 
 ---
 
-## Bagian 2: Relay Server di VPS Debian
+## Setup Relay Server di VPS (via Proxmox console)
 
-### 2a. Install Node.js
+**PENTING:** Pastikan DNS `doridcam.perdafos.my.id` sudah pointing ke IP publik VPS.
+Di Cloudflare: set ke **grey cloud** (☁️ mati) biar bisa HTTPS.
 
-```bash
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
-sudo apt install -y nodejs git
-node -v  # harus v20.x
-```
+Copy script ke VPS lalu jalanin:
 
-### 2b. Setup relay
+### Cara 1: Download langsung di VPS
 
 ```bash
-# Clone repo
-git clone https://github.com/USERNAME/droidcam-relay.git /opt/droidcam-relay
-cd /opt/droidcam-relay
-
-# Install dependencies (hanya express + ws)
-npm install --production
-
-# Config
-cp .env.example .env
-nano .env
+# Di console VPS, jalanin sebagai root:
+wget -O setup.sh https://raw.githubusercontent.com/USERNAME/droidcam-relay/main/setup.sh
+bash setup.sh
 ```
 
-**Isi .env:**
-```env
-DROIDCAM_URL=http://192.168.1.100:4747/video
-PORT=3000
-HOST=0.0.0.0
-RELAY_MODE=proxy
-```
-
-### 2c. Systemd service
+### Cara 2: Manual copy-paste ke VPS
 
 ```bash
-sudo nano /etc/systemd/system/droidcam-relay.service
+# Di console VPS (sebagai root):
+apt install -y git
+git clone https://github.com/USERNAME/droidcam-relay.git /tmp/droidcam
+cp /tmp/droidcam/setup.sh /root/
+bash /root/setup.sh
 ```
 
-```ini
-[Unit]
-Description=DroidCam Web Relay Server
-After=network.target
+### Cara 3: Satu per satu
 
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/opt/droidcam-relay
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=5
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
+Kalo mau manual, run step ini di VPS:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now droidcam-relay
-sudo systemctl status droidcam-relay
-```
+# 1. Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt install -y nodejs nginx git
 
-### 2d. Nginx reverse proxy (domain + SSL)
+# 2. Setup project
+cd /opt && git clone https://github.com/USERNAME/droidcam-relay.git droidcam-relay
+cd droidcam-relay && npm install --production
 
-```bash
-sudo apt install -y nginx certbot python3-certbot-nginx
-
-sudo nano /etc/nginx/sites-available/droidcam-relay
-```
-
-```nginx
-server {
-    listen 80;
-    server_name relay-server-domain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/droidcam-relay /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-sudo certbot --nginx -d relay-server-domain.com
-```
-
----
-
-## Bagian 3: Akses & Monitoring
-
-### Viewer
-
-- **Halaman utama**: `https://droidcam-relay.vercel.app` — WebSocket relay (kanvas, FPS, dll.)
-- **Direct stream**: `https://droidcam-relay.vercel.app/direct` — MJPEG langsung (fallback)
-
-### Cek status relay
-
-```bash
-curl https://relay-server-domain.com/status
-# → {"uptime":1234,"mode":"proxy","viewers":3}
-```
-
----
-
-## PENTING: Koneksi Jaringan
-
-Laptop sumber (DroidCam) **harus bisa dijangkau** relay server:
-
-| Skenario | Solusi |
-|----------|--------|
-| Satu jaringan lokal | Langsung pakai IP lokal (192.168.x.x) |
-| Laptop di rumah, VPS di cloud | Port forwarding di router → buka port 4747 |
-| Laptop NAT/tidak punya IP publik | Pasang tunnel: **ngrok**, **Cloudflare Tunnel**, atau **ZeroTier** |
-
-### Pakai ZeroTier (rekomendasi paling mudah):
-
-1. Install ZeroTier di laptop sumber & VPS:
-   ```bash
-   curl -s https://install.zerotier.com | sudo bash
-   ```
-2. Join network:
-   ```bash
-   sudo zerotier-cli join <NETWORK_ID>
-   ```
-3. Set `DROIDCAM_URL` ke IP ZeroTier laptop sumber
-
----
-
-## Local Development (Testing)
-
-```bash
-# 1. Clone & install
-cd /opt/droidcam-relay
-npm install
-
-# 2. Konfigurasi .env
-cp .env.example .env
-# → DROIDCAM_URL=http://localhost:4747/video (misal DroidCam di laptop yang sama)
-
-# 3. Jalankan relay server
+# 3. Jalankan relay
 node server.js
 
-# 4. Di browser: buka public/index.html langsung atau:
-#    http://localhost:3000 (karena server juga serve static)
+# 4. Setup Nginx + SSL → liat script setup.sh untuk konfigurasi lengkap
+```
+
+**Setelah setup selesai**, liat output terminal:
+
+```
+╔═══════════════════════════════════════════╗
+║  ✅  SETUP SELESAI!                       ║
+║───────────────────────────────────────────║
+║  STEP 1 — Buka dari LAPTOP SUMBER:        ║
+║    http://doridcam.perdafos.my.id/pair    ║
+║                                           ║
+║  STEP 2 — Klik tombol "Daftarkan laptop"  ║
+║                                           ║
+║  STEP 3 — Buka viewer:                    ║
+║    https://droidcam-relay.vercel.app      ║
+╚═══════════════════════════════════════════╝
+```
+
+---
+
+## Pairing (One-Click)
+
+**Cukup sekali:** Dari browser laptop sumber DroidCam, buka:
+
+```
+https://doridcam.perdafos.my.id/pair
+```
+
+Lalu klik **"📌 Daftarkan laptop ini"** — otomatis:
+- Deteksi IP laptop
+- Simpan ke `.paired_ip` di server
+- `DROIDCAM_URL` langsung berubah
+
+Gak perlu edit config manual.
+
+---
+
+## Endpoints Relay Server
+
+| Endpoint | Fungsi |
+|----------|--------|
+| `/` | 404 (frontend di Vercel) |
+| `/status` | Status relay + jumlah viewer |
+| `/mjpeg` | Direct MJPEG stream |
+| `/pair` | Halaman pairing (one-click) |
+| `/api/pair` | API pairing (POST) |
+| `/api/unpair` | API un-pair (POST) |
+
+---
+
+## Maintenance
+
+```bash
+# Cek status
+systemctl status droidcam-relay
+journalctl -u droidcam-relay -f
+
+# Restart
+systemctl restart droidcam-relay
+
+# Update kode
+cd /opt/droidcam-relay
+git pull
+systemctl restart droidcam-relay
 ```

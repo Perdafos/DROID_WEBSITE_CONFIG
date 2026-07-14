@@ -12,4 +12,4 @@
 // Jika HANYA untuk local development (server.js jalan di local):
 //   const RELAY_SERVER = 'ws://localhost:3000';
 // ============================================================
-const RELAY_SERVER = 'ws://localhost:3000';
+const RELAY_SERVER = 'wss://doridcam.perdafos.my.id';
