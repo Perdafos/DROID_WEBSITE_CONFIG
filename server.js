@@ -13,12 +13,10 @@ const DROIDCAM_URL = process.env.DROIDCAM_URL || 'http://192.168.1.100:4747/vide
 const app = express();
 const server = http.createServer(app);
 
-// Static files
-app.use(express.static('public'));
-
-// Direct MJPEG viewer page (fallback)
-app.get('/direct', (req, res) => {
-  res.sendFile(__dirname + '/public/direct.html');
+// CORS — allow requests from Vercel frontend
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
 });
 
 // Health check

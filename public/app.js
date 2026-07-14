@@ -8,9 +8,8 @@
   const resSpan = document.getElementById('resolution');
   const latSpan = document.getElementById('latency');
 
-  // Determine WebSocket URL
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${proto}//${location.host}`;
+  // WebSocket URL from config.js
+  const wsUrl = RELAY_SERVER;
 
   let ws, frameTimer, frameCount = 0, lastFpsTime = 0;
 
