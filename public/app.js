@@ -52,14 +52,21 @@
 
   // ── WebSocket connection ─────────────────────────────
   function connect() {
-    setStatus('connecting');
+    setStatus('Connecting');
     hidePlaceholder();
+
+    if (ws) {
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.close();
+    }
 
     ws = new WebSocket(wsUrl);
     ws.binaryType = 'blob';
 
     ws.onopen = function () {
-      setStatus('connected');
+      setStatus('Connected');
+      hidePlaceholder();
       console.log('WebSocket connected');
     };
 
@@ -80,7 +87,7 @@
     };
 
     ws.onclose = function () {
-      setStatus('disconnected');
+      setStatus('Disconnected');
       showPlaceholder();
       // Auto-reconnect after 3s
       setTimeout(connect, 3000);
@@ -94,13 +101,20 @@
   // ── UI helpers ───────────────────────────────────────
   function setStatus(text) {
     status.textContent = text;
-    status.className = 'status ' + (text === 'Connected'    ? 'connected'    :
-                                    text === 'connecting'    ? 'connecting'   :
-                                    'disconnected');
+    if (text === 'Connected') {
+      status.className = 'status connected';
+    } else if (text === 'Connecting') {
+      status.className = 'status connecting';
+    } else {
+      status.className = 'status disconnected';
+    }
   }
 
   function showPlaceholder() {
-    document.getElementById('placeholder').style.display = 'flex';
+    const el = document.getElementById('placeholder');
+    el.querySelector('p').textContent = 'Menunggu stream...';
+    el.querySelector('small').textContent = 'Pastikan laptop sumber terhubung ke server';
+    el.style.display = 'flex';
   }
 
   function hidePlaceholder() {
